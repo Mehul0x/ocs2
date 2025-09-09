@@ -28,7 +28,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
 
 #pragma once
-
 #include <condition_variable>
 #include <csignal>
 #include <ctime>
@@ -56,6 +55,19 @@ class MPC_MRT_Interface final : public MRT_BASE {
   explicit MPC_MRT_Interface(MPC_BASE& mpc);
 
   ~MPC_MRT_Interface() override = default;
+
+  vector_t ReferenceVec;
+  bool ref_flag=false;
+  int sizeofHash=INT_MAX/200  ;
+  // int sizeofHash = 10000;
+  struct MPCcache{
+    std::unique_ptr<PrimalSolution> primalSolution;
+    std::unique_ptr<PerformanceIndex> performanceIndex;
+    std::unique_ptr<CommandData> commandData;
+  };
+
+
+  std::vector<MPCcache> cache;
 
   void resetMpcNode(const TargetTrajectories& initTargetTrajectories) override;
 
@@ -122,6 +134,7 @@ class MPC_MRT_Interface final : public MRT_BASE {
    * @param [in] mpcInitObservation: The observation used to run the MPC.
    */
   void copyToBuffer(const SystemObservation& mpcInitObservation);
+  void copyToCache(const SystemObservation& mpcInitObservation, MPCcache& cacheItem);
 
   MPC_BASE& mpc_;
   benchmark::RepeatedTimer mpcTimer_;

@@ -26,7 +26,7 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ******************************************************************************/
-
+#include <algorithm>
 #include "ocs2_mpc/MPC_MRT_Interface.h"
 
 #include <ocs2_core/control/FeedforwardController.h>
@@ -39,6 +39,8 @@ namespace ocs2 {
 /******************************************************************************************************/
 MPC_MRT_Interface::MPC_MRT_Interface(MPC_BASE& mpc) : mpc_(mpc) {
   mpcTimer_.reset();
+  cache.resize(sizeofHash);
+
 }
 
 /******************************************************************************************************/
@@ -85,11 +87,58 @@ void MPC_MRT_Interface::advanceMpc() {
     currentObservation = currentObservation_;
   }
 
-  bool controllerIsUpdated = mpc_.run(currentObservation.time, currentObservation.state);
-  if (!controllerIsUpdated) {
+  if (!ref_flag){
+    ReferenceVec=currentObservation.state;
+    ref_flag=1;
+
+  }
+
+  // Calculate the dot product
+  double dot_product = ReferenceVec.dot(currentObservation.state);
+
+  // Calculate the norms (magnitudes)
+  double norm_ref = ReferenceVec.norm();
+  double norm_obs = currentObservation.state.norm();
+
+  // Calculate the cosine similarity
+  double cosine_similarity = dot_product / ((norm_ref * norm_obs)+1e-9);
+
+  cosine_similarity= (int)(sizeofHash/2) *(cosine_similarity+1);
+
+  // check krna hai if I have previously assigned any value at that index
+  if(cache[cosine_similarity].primalSolution==nullptr){
+      bool controllerIsUpdated = mpc_.run(currentObservation.time, currentObservation.state);
+      if (!controllerIsUpdated) {
+        return;
+      }
+      copyToCache(currentObservation, cache[cosine_similarity]); //work like copyToBuffer but also copies the data to cache
+  }
+  
+  else{
+
+    const scalar_t startTime = currentObservation.time;
+    const scalar_t finalTime = startTime +0.01;
+
+
+    auto copiedPrimalSolution = std::make_unique<PrimalSolution>(*cache[cosine_similarity].primalSolution );
+
+    // mpc_.getSolverPtr()->getPrimalSolution(finalTime, copiedPrimalSolution.get());  //ismein recieved plan constant pe atak jaata 
+    // copiedPrimalSolution->timeTrajectory_.push_back(finalTime); //ismein dono badhte, zyada badha do toh seg fault
+
+    auto copiedPerformanceIndex = std::make_unique<PerformanceIndex>(*cache[cosine_similarity].performanceIndex);
+
+    auto copiedCommandData = std::make_unique<CommandData>(*cache[cosine_similarity].commandData);
+
+    this->moveToBuffer(std::move(copiedCommandData), std::move(copiedPrimalSolution), std::move(copiedPerformanceIndex));
     return;
   }
-  copyToBuffer(currentObservation);
+
+
+  // bool controllerIsUpdated = mpc_.run(currentObservation.time, currentObservation.state); //what does this do?
+  // if (!controllerIsUpdated) {
+  //   return;
+  // }
+  // copyToBuffer(currentObservation);
 
   // measure the delay for sending ROS messages
   mpcTimer_.endTimer();
@@ -131,6 +180,36 @@ void MPC_MRT_Interface::copyToBuffer(const SystemObservation& mpcInitObservation
   // performance indices
   auto performanceIndicesPtr = std::make_unique<PerformanceIndex>();
   *performanceIndicesPtr = mpc_.getSolverPtr()->getPerformanceIndeces();
+
+  this->moveToBuffer(std::move(commandPtr), std::move(primalSolutionPtr), std::move(performanceIndicesPtr));
+}
+
+void MPC_MRT_Interface::copyToCache(const SystemObservation& mpcInitObservation, MPCcache& cacheItem) {
+  // policy
+  auto primalSolutionPtr = std::make_unique<PrimalSolution>();
+  const scalar_t startTime = mpcInitObservation.time;
+  const scalar_t finalTime =
+      (mpc_.settings().solutionTimeWindow_ < 0) ? mpc_.getSolverPtr()->getFinalTime() : startTime + mpc_.settings().solutionTimeWindow_;
+  mpc_.getSolverPtr()->getPrimalSolution(finalTime, primalSolutionPtr.get());
+
+  // command
+  auto commandPtr = std::make_unique<CommandData>();
+  commandPtr->mpcInitObservation_ = mpcInitObservation;
+  commandPtr->mpcTargetTrajectories_ = mpc_.getSolverPtr()->getReferenceManager().getTargetTrajectories();
+
+  // performance indices
+  auto performanceIndicesPtr = std::make_unique<PerformanceIndex>();
+  *performanceIndicesPtr = mpc_.getSolverPtr()->getPerformanceIndeces();
+
+  //copy the data to cache
+  auto copiedPrimalSolution = std::make_unique<PrimalSolution>(*primalSolutionPtr);
+  cacheItem.primalSolution = std::move(copiedPrimalSolution);
+  
+  auto copiedPerformanceIndex = std::make_unique<PerformanceIndex>(*performanceIndicesPtr);
+  cacheItem.performanceIndex = std::move(copiedPerformanceIndex);
+
+  auto copiedCommandData = std::make_unique<CommandData>(*commandPtr);
+  cacheItem.commandData = std::move(copiedCommandData);
 
   this->moveToBuffer(std::move(commandPtr), std::move(primalSolutionPtr), std::move(performanceIndicesPtr));
 }
