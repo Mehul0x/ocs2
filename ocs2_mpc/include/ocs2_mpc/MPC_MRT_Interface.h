@@ -35,6 +35,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iostream>
 #include <string>
 #include <thread>
+#include <vector> 
+#include <limits>
+#include "ocs2_mpc/MPCCache.h"
 
 #include <ocs2_core/misc/Benchmark.h>
 #include <ocs2_core/model_data/Multiplier.h>
@@ -115,6 +118,8 @@ class MPC_MRT_Interface final : public MRT_BASE {
    */
   MultiplierCollection getIntermediateDualSolution(scalar_t time) const;
 
+  void copyToCache(const SystemObservation& mpcInitObservation, vector_t feat, std::string& key);
+
  private:
   /**
    * Updates the buffer variables from the MPC object. This method is automatically called by advanceMpc()
@@ -126,9 +131,12 @@ class MPC_MRT_Interface final : public MRT_BASE {
   MPC_BASE& mpc_;
   benchmark::RepeatedTimer mpcTimer_;
 
+  MPCCache cache;
   // MPC inputs
   SystemObservation currentObservation_;
   std::mutex observationMutex_;
+
+
 };
 
 }  // namespace ocs2

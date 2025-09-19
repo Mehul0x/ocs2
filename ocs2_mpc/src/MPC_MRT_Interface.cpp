@@ -81,16 +81,45 @@ void MPC_MRT_Interface::advanceMpc() {
 
   SystemObservation currentObservation;
   {
-    std::lock_guard<std::mutex> lock(observationMutex_);
+    std::lock_guard<std::mutex> lock(observationMutex_);  //mmmmm mutex mmmmm, i don't understand it well
     currentObservation = currentObservation_;
   }
-
-  bool controllerIsUpdated = mpc_.run(currentObservation.time, currentObservation.state);
-  if (!controllerIsUpdated) {
-    return;
+  
+  // vector_t feat(1 + 12);
+  // feat << currentObservation.mode, currentObservation.state.head(12);
+  vector_t feat = currentObservation.state.head(12);
+  // cache.setBinWidths({1.0, 0.005, 0.003, 0.01, 0.0001, 0.0004, 0.002, 0.004, 0.0004, 0.03, 0.0008, 0.5, 0.6, 0.05, 0.6, 0.3, 0.4, 0.7, 0.6, 0.05, 0.7, 0.6, 0.1, 0.8, 0.5});
+  // cache.setBinWidths({10});
+  auto key = cache.quantizeKey(feat);
+  // std::cerr<<key <<std::endl;
+  // std::cerr << "current mode :" << currentObservation.mode << std::endl;
+  double delta;
+  if(currentObservation.mode==0) delta = 0.0008;
+  else delta=0.5;
+  // std::cerr<< cache.size()<< std::endl;
+  auto solptr=cache.queryNearest(key, feat, delta);
+  if ( solptr== nullptr){
+    bool controllerIsUpdated = mpc_.run(currentObservation.time, currentObservation.state);
+    if (!controllerIsUpdated) {
+      return;
+    }
+    copyToCache(currentObservation, feat, key); // insert call krne ka krna hai add krna hai
   }
-  copyToBuffer(currentObservation);
+  else{
+  
+  // std::cerr<<"in the else" << std::endl ;
+  auto copiedPrimalSolution = std::make_unique<PrimalSolution>(*(solptr->ptr.primalSolutionPtr)); //need to deference before turning into a ptr again
 
+  auto copiedPerformanceIndex = std::make_unique<PerformanceIndex>(*(solptr->ptr.performanceIndicesPtr));
+
+  auto copiedCommandData = std::make_unique<CommandData>(*(solptr->ptr.commandPtr));
+
+
+  this->moveToBuffer(std::move(copiedCommandData), std::move(copiedPrimalSolution), std::move(copiedPerformanceIndex));
+
+  }
+  
+ 
   // measure the delay for sending ROS messages
   mpcTimer_.endTimer();
 
@@ -115,6 +144,38 @@ void MPC_MRT_Interface::advanceMpc() {
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
+void MPC_MRT_Interface::copyToCache(const SystemObservation& mpcInitObservation, vector_t feat, std::string& key) {
+  // policy
+  auto primalSolutionPtr = std::make_unique<PrimalSolution>();
+  const scalar_t startTime = mpcInitObservation.time;
+  const scalar_t finalTime =
+      (mpc_.settings().solutionTimeWindow_ < 0) ? mpc_.getSolverPtr()->getFinalTime() : startTime + mpc_.settings().solutionTimeWindow_;
+  mpc_.getSolverPtr()->getPrimalSolution(finalTime, primalSolutionPtr.get());
+
+  // command
+  auto commandPtr = std::make_unique<CommandData>();
+  commandPtr->mpcInitObservation_ = mpcInitObservation;
+  commandPtr->mpcTargetTrajectories_ = mpc_.getSolverPtr()->getReferenceManager().getTargetTrajectories();
+
+  // performance indices
+  auto performanceIndicesPtr = std::make_unique<PerformanceIndex>();
+  *performanceIndicesPtr = mpc_.getSolverPtr()->getPerformanceIndeces();
+
+  //copy the data to cache
+  auto copiedPrimalSolution = std::make_unique<PrimalSolution>(*primalSolutionPtr);
+  auto copiedPerformanceIndex = std::make_unique<PerformanceIndex>(*performanceIndicesPtr);
+  auto copiedCommandData = std::make_unique<CommandData>(*commandPtr);
+
+  MPCCacheEntry Entry;
+  Entry.feat=feat;
+  Entry.ptr.commandPtr=std::move(copiedCommandData);
+  Entry.ptr.primalSolutionPtr=std::move(copiedPrimalSolution);
+  Entry.ptr.performanceIndicesPtr=std::move(copiedPerformanceIndex);
+
+  cache.insert(key, Entry);
+  this->moveToBuffer(std::move(commandPtr), std::move(primalSolutionPtr), std::move(performanceIndicesPtr));
+}
+
 void MPC_MRT_Interface::copyToBuffer(const SystemObservation& mpcInitObservation) {
   // policy
   auto primalSolutionPtr = std::make_unique<PrimalSolution>();
