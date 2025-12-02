@@ -20,16 +20,16 @@ struct MPCSolutionPointers {
     }
 };
 
-struct MPCCacheEntry {
+struct MPCCacheEntry_ocs {
     ocs2::vector_t feat;
     MPCSolutionPointers ptr;
     double trust_radius = 10.0;
     uint64_t last_use = 0;
 };
 
-class MPCCache {
+class MPCCache_ocs {
    public:
-    explicit MPCCache(size_t capacity = 32, double default_delta = 1.0) //so that implicit conversion doesn't happen, puch hi lo
+    explicit MPCCache_ocs(size_t capacity = 32, double default_delta = 1.0) //so that implicit conversion doesn't happen, puch hi lo
         : capacity_(capacity), default_delta_(default_delta) {}
 
     void setBinWidths(const std::vector<double> &h) {
@@ -43,7 +43,7 @@ class MPCCache {
         std::string s;
         s.reserve(feat.size() * 4);
         for (size_t i = 0; i < feat.size(); ++i) {
-            double denom = (h_.size() == feat.size() ? h_[i] : 0.5);
+            double denom = (h_.size() == feat.size() ? h_[i] : 1.0);
             long long qi = llround(feat[i] / denom); //llround rounds a floating point number to the nearest long long, a simple cast truncates instead of rouding
             s += std::to_string(qi);
             s.push_back(',');
@@ -51,7 +51,7 @@ class MPCCache {
         return s;
     }
 
-    void insert(const std::string &qkey, MPCCacheEntry &entry) {  //yahan pe pehle &&entry tha , why?
+    void insert(const std::string &qkey, MPCCacheEntry_ocs &entry) {  //yahan pe pehle &&entry tha , why?
         std::lock_guard<std::mutex> lg(m_);
         entry.last_use = ++tick_;
         map_[qkey] = std::move(entry);
@@ -63,12 +63,12 @@ class MPCCache {
         return map_.size();
     }
 
-    MPCCacheEntry *queryNearest(const std::string &qkey,
+    MPCCacheEntry_ocs *queryNearest(const std::string &qkey,
                                 const ocs2::vector_t &feat, double delta) {
         std::lock_guard<std::mutex> lg(m_);
         auto it = map_.find(qkey);
         if (it == map_.end())   return nullptr;
-        MPCCacheEntry &e = it->second;
+        MPCCacheEntry_ocs &e = it->second;
         double d = euclidean(feat, e.feat);
         // std::cerr<< "dist :" << d <<std::endl;
         if (d <= delta ) {
@@ -109,7 +109,7 @@ class MPCCache {
         if (!oldest_key.empty()) map_.erase(oldest_key);
     }
 
-    std::unordered_map<std::string, MPCCacheEntry> map_;
+    std::unordered_map<std::string, MPCCacheEntry_ocs> map_;
     std::vector<double> h_; //bin
     size_t capacity_;
     double default_delta_;

@@ -131,7 +131,7 @@ class MPC_MRT_Interface final : public MRT_BASE {
   MPC_BASE& mpc_;
   benchmark::RepeatedTimer mpcTimer_;
 
-  MPCCache cache;
+  MPCCache_ocs cache;
   // MPC inputs
   SystemObservation currentObservation_;
   std::mutex observationMutex_;

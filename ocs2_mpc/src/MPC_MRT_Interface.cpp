@@ -166,7 +166,7 @@ void MPC_MRT_Interface::copyToCache(const SystemObservation& mpcInitObservation,
   auto copiedPerformanceIndex = std::make_unique<PerformanceIndex>(*performanceIndicesPtr);
   auto copiedCommandData = std::make_unique<CommandData>(*commandPtr);
 
-  MPCCacheEntry Entry;
+  MPCCacheEntry_ocs Entry;
   Entry.feat=feat;
   Entry.ptr.commandPtr=std::move(copiedCommandData);
   Entry.ptr.primalSolutionPtr=std::move(copiedPrimalSolution);

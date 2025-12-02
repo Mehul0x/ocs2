@@ -34,7 +34,7 @@ namespace centroidal_model {
 /******************************************************************************************************/
 /******************************************************************************************************/
 template <typename Derived, typename SCALAR>
-Eigen::Block<Derived, 3, 1> getContactForces(Eigen::MatrixBase<Derived>& input, size_t contactIndex,
+inline Eigen::Block<Derived, 3, 1> getContactForces(Eigen::MatrixBase<Derived>& input, size_t contactIndex,
                                              const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(input.rows() == info.inputDim);
   assert(input.cols() == 1);
@@ -46,7 +46,7 @@ Eigen::Block<Derived, 3, 1> getContactForces(Eigen::MatrixBase<Derived>& input, 
 }
 
 template <typename Derived, typename SCALAR>
-const Eigen::Block<const Derived, 3, 1> getContactForces(const Eigen::MatrixBase<Derived>& input, size_t contactIndex,
+inline const Eigen::Block<const Derived, 3, 1> getContactForces(const Eigen::MatrixBase<Derived>& input, size_t contactIndex,
                                                          const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(input.rows() == info.inputDim);
   assert(input.cols() == 1);
@@ -61,7 +61,7 @@ const Eigen::Block<const Derived, 3, 1> getContactForces(const Eigen::MatrixBase
 /******************************************************************************************************/
 /******************************************************************************************************/
 template <typename Derived, typename SCALAR>
-Eigen::Block<Derived, 3, 1> getContactTorques(Eigen::MatrixBase<Derived>& input, size_t contactIndex,
+inline Eigen::Block<Derived, 3, 1> getContactTorques(Eigen::MatrixBase<Derived>& input, size_t contactIndex,
                                               const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(input.rows() == info.inputDim);
   assert(input.cols() == 1);
@@ -72,7 +72,7 @@ Eigen::Block<Derived, 3, 1> getContactTorques(Eigen::MatrixBase<Derived>& input,
 }
 
 template <typename Derived, typename SCALAR>
-const Eigen::Block<const Derived, 3, 1> getContactTorques(const Eigen::MatrixBase<Derived>& input, size_t contactIndex,
+inline const Eigen::Block<const Derived, 3, 1> getContactTorques(const Eigen::MatrixBase<Derived>& input, size_t contactIndex,
                                                           const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(input.rows() == info.inputDim);
   assert(input.cols() == 1);
@@ -94,7 +94,7 @@ Eigen::Block<Derived, -1, 1> getJointVelocities(Eigen::MatrixBase<Derived>& inpu
 }
 
 template <typename Derived, typename SCALAR>
-const Eigen::Block<const Derived, -1, 1> getJointVelocities(const Eigen::MatrixBase<Derived>& input,
+inline const Eigen::Block<const Derived, -1, 1> getJointVelocities(const Eigen::MatrixBase<Derived>& input,
                                                             const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(input.rows() == info.inputDim);
   assert(input.cols() == 1);
@@ -106,14 +106,14 @@ const Eigen::Block<const Derived, -1, 1> getJointVelocities(const Eigen::MatrixB
 /******************************************************************************************************/
 /******************************************************************************************************/
 template <typename Derived, typename SCALAR>
-Eigen::Block<Derived, 6, 1> getNormalizedMomentum(Eigen::MatrixBase<Derived>& state, const CentroidalModelInfoTpl<SCALAR>& info) {
+inline Eigen::Block<Derived, 6, 1> getNormalizedMomentum(Eigen::MatrixBase<Derived>& state, const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(state.rows() == info.stateDim);
   assert(state.cols() == 1);
   return Eigen::Block<Derived, 6, 1>(state.derived(), 0, 0);
 }
 
 template <typename Derived, typename SCALAR>
-const Eigen::Block<const Derived, 6, 1> getNormalizedMomentum(const Eigen::MatrixBase<Derived>& state,
+inline const Eigen::Block<const Derived, 6, 1> getNormalizedMomentum(const Eigen::MatrixBase<Derived>& state,
                                                               const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(state.rows() == info.stateDim);
   assert(state.cols() == 1);
@@ -124,14 +124,14 @@ const Eigen::Block<const Derived, 6, 1> getNormalizedMomentum(const Eigen::Matri
 /******************************************************************************************************/
 /******************************************************************************************************/
 template <typename Derived, typename SCALAR>
-Eigen::Block<Derived, 6, 1> getBasePose(Eigen::MatrixBase<Derived>& state, const CentroidalModelInfoTpl<SCALAR>& info) {
+inline Eigen::Block<Derived, 6, 1> getBasePose(Eigen::MatrixBase<Derived>& state, const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(state.rows() == info.stateDim);
   assert(state.cols() == 1);
   return Eigen::Block<Derived, 6, 1>(state.derived(), 6, 0);
 }
 
 template <typename Derived, typename SCALAR>
-const Eigen::Block<const Derived, 6, 1> getBasePose(const Eigen::MatrixBase<Derived>& state, const CentroidalModelInfoTpl<SCALAR>& info) {
+inline const Eigen::Block<const Derived, 6, 1> getBasePose(const Eigen::MatrixBase<Derived>& state, const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(state.rows() == info.stateDim);
   assert(state.cols() == 1);
   return Eigen::Block<const Derived, 6, 1>(state.derived(), 6, 0);
@@ -141,14 +141,14 @@ const Eigen::Block<const Derived, 6, 1> getBasePose(const Eigen::MatrixBase<Deri
 /******************************************************************************************************/
 /******************************************************************************************************/
 template <typename Derived, typename SCALAR>
-Eigen::Block<Derived, -1, 1> getJointAngles(Eigen::MatrixBase<Derived>& state, const CentroidalModelInfoTpl<SCALAR>& info) {
+inline Eigen::Block<Derived, -1, 1> getJointAngles(Eigen::MatrixBase<Derived>& state, const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(state.rows() == info.stateDim);
   assert(state.cols() == 1);
   return Eigen::Block<Derived, -1, 1>(state.derived(), 12, 0, info.actuatedDofNum, 1);
 }
 
 template <typename Derived, typename SCALAR>
-const Eigen::Block<const Derived, -1, 1> getJointAngles(const Eigen::MatrixBase<Derived>& state,
+inline const Eigen::Block<const Derived, -1, 1> getJointAngles(const Eigen::MatrixBase<Derived>& state,
                                                         const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(state.rows() == info.stateDim);
   assert(state.cols() == 1);
@@ -159,14 +159,14 @@ const Eigen::Block<const Derived, -1, 1> getJointAngles(const Eigen::MatrixBase<
 /******************************************************************************************************/
 /******************************************************************************************************/
 template <typename Derived, typename SCALAR>
-Eigen::Block<Derived, -1, 1> getGeneralizedCoordinates(Eigen::MatrixBase<Derived>& state, const CentroidalModelInfoTpl<SCALAR>& info) {
+inline Eigen::Block<Derived, -1, 1> getGeneralizedCoordinates(Eigen::MatrixBase<Derived>& state, const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(state.rows() == info.stateDim);
   assert(state.cols() == 1);
   return Eigen::Block<Derived, -1, 1>(state.derived(), 6, 0, info.generalizedCoordinatesNum, 1);
 }
 
 template <typename Derived, typename SCALAR>
-const Eigen::Block<const Derived, -1, 1> getGeneralizedCoordinates(const Eigen::MatrixBase<Derived>& state,
+inline const Eigen::Block<const Derived, -1, 1> getGeneralizedCoordinates(const Eigen::MatrixBase<Derived>& state,
                                                                    const CentroidalModelInfoTpl<SCALAR>& info) {
   assert(state.rows() == info.stateDim);
   assert(state.cols() == 1);
