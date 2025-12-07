@@ -43,7 +43,7 @@ class MPCCache_ocs {
         std::string s;
         s.reserve(feat.size() * 4);
         for (size_t i = 0; i < feat.size(); ++i) {
-            double denom = (h_.size() == feat.size() ? h_[i] : 1.0);
+            double denom = (h_.size() == feat.size() ? h_[i] : (i==0? 1.0 : 0.5));
             long long qi = llround(feat[i] / denom); //llround rounds a floating point number to the nearest long long, a simple cast truncates instead of rouding
             s += std::to_string(qi);
             s.push_back(',');
@@ -51,7 +51,7 @@ class MPCCache_ocs {
         return s;
     }
 
-    void insert(const std::string &qkey, MPCCacheEntry_ocs &entry) {  //yahan pe pehle &&entry tha , why?
+    void insert(const std::string &qkey, MPCCacheEntry_ocs &entry) {  
         std::lock_guard<std::mutex> lg(m_);
         entry.last_use = ++tick_;
         map_[qkey] = std::move(entry);

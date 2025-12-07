@@ -5,6 +5,9 @@ find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   ocs2_core
   ocs2_oc
+  roscpp
+  std_msgs
+  geometry_msgs
 )
 find_package(Boost REQUIRED COMPONENTS
   system

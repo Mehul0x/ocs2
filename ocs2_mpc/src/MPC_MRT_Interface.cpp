@@ -39,6 +39,16 @@ namespace ocs2 {
 /******************************************************************************************************/
 MPC_MRT_Interface::MPC_MRT_Interface(MPC_BASE& mpc) : mpc_(mpc) {
   mpcTimer_.reset();
+
+  // int argc=1;
+  // char arg0[] = "MPC_MRT_Interface";
+  // char* argv[] = {&arg0[0], NULL};
+  // ::ros::init(argc,argv , "legged_robot_mpc_mrt_interface"); 
+  // ::ros::NodeHandle nh;
+
+  // // subscribe with member callback
+  // ::ros::Subscriber cmdVelSub_ = nh.subscribe<geometry_msgs::Twist>("/cmd_vel", 1, &MPC_MRT_Interface::cmdVelCallback, this);
+
 }
 
 /******************************************************************************************************/
@@ -81,20 +91,24 @@ void MPC_MRT_Interface::advanceMpc() {
 
   SystemObservation currentObservation;
   {
-    std::lock_guard<std::mutex> lock(observationMutex_);  //mmmmm mutex mmmmm, i don't understand it well
+    std::lock_guard<std::mutex> lock(observationMutex_);  
     currentObservation = currentObservation_;
   }
   
-  // vector_t feat(1 + 12);
-  // feat << currentObservation.mode, currentObservation.state.head(12);
-  vector_t feat = currentObservation.state.head(12);
-  // cache.setBinWidths({1.0, 0.005, 0.003, 0.01, 0.0001, 0.0004, 0.002, 0.004, 0.0004, 0.03, 0.0008, 0.5, 0.6, 0.05, 0.6, 0.3, 0.4, 0.7, 0.6, 0.05, 0.7, 0.6, 0.1, 0.8, 0.5});
+  // #define USE_CACHING
+
+  #ifdef USE_CACHING 
+  {
+  vector_t feat(1 + 12 +4);
+  feat << currentObservation.mode, currentObservation.state.head(12), cmdVel; //there are 16 modes so should be helpful
+  // vector_t feat = currentObservation.state.head(12);
+  // cache.setBinWidths({1.0, 0.005, 0.003, 0.01, 0.0001, 0.0004, 0.002, 0.004, 0.0004, 0.03, 0.0008, 0.5, 0.6, 0.05, 0.6, 0.3, 0.4, 0.7, 0.6, 0.05, 0.7, 0.6, 0.1, 0.8, 0.5}); //maybe should set bins according to quantiles similar to xgboost
   // cache.setBinWidths({10});
   auto key = cache.quantizeKey(feat);
   // std::cerr<<key <<std::endl;
-  // std::cerr << "current mode :" << currentObservation.mode << std::endl;
+  std::cerr << "current mode :" << currentObservation.mode << std::endl;
   double delta;
-  if(currentObservation.mode==0) delta = 0.0008;
+  if(currentObservation.mode==0) delta = 0.0001;
   else delta=0.5;
   // std::cerr<< cache.size()<< std::endl;
   auto solptr=cache.queryNearest(key, feat, delta);
@@ -103,7 +117,7 @@ void MPC_MRT_Interface::advanceMpc() {
     if (!controllerIsUpdated) {
       return;
     }
-    copyToCache(currentObservation, feat, key); // insert call krne ka krna hai add krna hai
+    copyToCache(currentObservation, feat, key); 
   }
   else{
   
@@ -118,8 +132,19 @@ void MPC_MRT_Interface::advanceMpc() {
   this->moveToBuffer(std::move(copiedCommandData), std::move(copiedPrimalSolution), std::move(copiedPerformanceIndex));
 
   }
-  
+} 
+  #endif
+  #ifndef USE_CACHING 
+  {
+
+  bool controllerIsUpdated = mpc_.run(currentObservation.time, currentObservation.state);
+  if (!controllerIsUpdated) {
+      return;
+   }
  
+  copyToBuffer(currentObservation);
+  }
+  #endif
   // measure the delay for sending ROS messages
   mpcTimer_.endTimer();
 
@@ -230,4 +255,7 @@ MultiplierCollection MPC_MRT_Interface::getIntermediateDualSolution(scalar_t tim
   return mpc_.getSolverPtr()->getIntermediateDualSolution(time);
 }
 
+/******************************************************************************************************/
+/******************************************************************************************************/
+/******************************************************************************************************/
 }  // namespace ocs2

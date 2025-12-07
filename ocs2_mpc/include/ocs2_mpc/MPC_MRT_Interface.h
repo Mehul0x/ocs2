@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <condition_variable>
 #include <csignal>
 #include <ctime>
+#include <geometry_msgs/Twist.h>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -43,6 +44,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ocs2_core/model_data/Multiplier.h>
 #include "ocs2_mpc/MPC_BASE.h"
 #include "ocs2_mpc/MRT_BASE.h"
+
+#include <ros/subscriber.h>
+#include <ros/ros.h>
+#include <geometry_msgs/Twist.h>
 
 namespace ocs2 {
 
@@ -118,15 +123,24 @@ class MPC_MRT_Interface final : public MRT_BASE {
    */
   MultiplierCollection getIntermediateDualSolution(scalar_t time) const;
 
-  void copyToCache(const SystemObservation& mpcInitObservation, vector_t feat, std::string& key);
 
  private:
+
   /**
    * Updates the buffer variables from the MPC object. This method is automatically called by advanceMpc()
    *
    * @param [in] mpcInitObservation: The observation used to run the MPC.
    */
   void copyToBuffer(const SystemObservation& mpcInitObservation);
+
+  /**
+   * Updates the buffer variables from the MPC object while storing stuff in cache This method is automatically called by advanceMpc()
+   *
+   * @param [in] mpcInitObservation: The observation used to run the MPC.
+   */
+  void copyToCache(const SystemObservation& mpcInitObservation, vector_t feat, std::string& key);
+
+  
 
   MPC_BASE& mpc_;
   benchmark::RepeatedTimer mpcTimer_;
@@ -135,8 +149,17 @@ class MPC_MRT_Interface final : public MRT_BASE {
   // MPC inputs
   SystemObservation currentObservation_;
   std::mutex observationMutex_;
+  // store latest cmd_vel as a 4-element vector used by caching/feature vector
+  vector_t cmdVel = vector_t::Zero(4);
 
+  // void cmdVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
+  //     std::lock_guard<std::mutex> lock(observationMutex_);
+  //     cmdVel[0] = msg->linear.x;
+  //     cmdVel[1] = msg->linear.y;
+  //     cmdVel[2] = msg->linear.z;
+  //     cmdVel[3] = msg->angular.z;
 
+  //   }
 };
 
 }  // namespace ocs2
