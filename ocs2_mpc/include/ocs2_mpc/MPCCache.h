@@ -20,6 +20,9 @@ struct MPCSolutionPointers {
     }
 };
 
+/**
+    * An entry in the MPC cache.
+ */
 struct MPCCacheEntry_ocs {
     ocs2::vector_t feat;
     MPCSolutionPointers ptr;
@@ -39,11 +42,14 @@ class MPCCache_ocs {
 
     const std::vector<double> &getBinWidths() const { return h_; } 
 
+    /*
+    * @brief Quantizes the feature vector into a string key.
+    */
     std::string quantizeKey(const ocs2::vector_t &feat) const { 
         std::string s;
         s.reserve(feat.size() * 4);
         for (size_t i = 0; i < feat.size(); ++i) {
-            double denom = (h_.size() == feat.size() ? h_[i] : (i==0? 1.0 : 0.5));
+            double denom = (h_.size() == feat.size() ? h_[i] : 0.5);
             long long qi = llround(feat[i] / denom); //llround rounds a floating point number to the nearest long long, a simple cast truncates instead of rouding
             s += std::to_string(qi);
             s.push_back(',');
@@ -51,6 +57,11 @@ class MPCCache_ocs {
         return s;
     }
 
+    /*
+    * @brief Inserts an entry into the cache.
+        @param [in] qkey: quantized key
+        @param [in] entry: the cache entry to be inserted
+    */
     void insert(const std::string &qkey, MPCCacheEntry_ocs &entry) {  
         std::lock_guard<std::mutex> lg(m_);
         entry.last_use = ++tick_;
@@ -63,6 +74,9 @@ class MPCCache_ocs {
         return map_.size();
     }
 
+    /*
+    *@brief Queries the nearest entry in the cache within a given distance.
+    */
     MPCCacheEntry_ocs *queryNearest(const std::string &qkey,
                                 const ocs2::vector_t &feat, double delta) {
         std::lock_guard<std::mutex> lg(m_);
@@ -83,6 +97,10 @@ class MPCCache_ocs {
         map_.clear();
     }
 
+    void save(){
+        
+    }
+
    private:
 
     static double euclidean(const ocs2::vector_t &a,
@@ -97,6 +115,9 @@ class MPCCache_ocs {
         return std::sqrt(s);
     }
 
+    /*
+    *@brief Evicts the least recently used entry from the cache.
+    */
     void evictLRU() {
         uint64_t oldest = UINT64_MAX;
         std::string oldest_key;

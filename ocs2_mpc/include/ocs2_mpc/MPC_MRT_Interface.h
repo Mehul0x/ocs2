@@ -49,6 +49,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 
+#define USE_CACHING
+
 namespace ocs2 {
 
 /**
@@ -61,7 +63,7 @@ class MPC_MRT_Interface final : public MRT_BASE {
    * Constructor
    * @param [in] mpc: The underlying MPC class to be used.
    */
-  explicit MPC_MRT_Interface(MPC_BASE& mpc);
+  explicit MPC_MRT_Interface(MPC_BASE& mpc, ::ros::NodeHandle nodeHandle);
 
   ~MPC_MRT_Interface() override = default;
 
@@ -138,28 +140,28 @@ class MPC_MRT_Interface final : public MRT_BASE {
    *
    * @param [in] mpcInitObservation: The observation used to run the MPC.
    */
-  void copyToCache(const SystemObservation& mpcInitObservation, vector_t feat, std::string& key);
+  void copyToCache(MPCCache_ocs& cache, const SystemObservation& mpcInitObservation, vector_t feat, std::string& key);
 
   
-
+  ::ros::Subscriber cmdVelSub_;
+  
   MPC_BASE& mpc_;
   benchmark::RepeatedTimer mpcTimer_;
 
-  MPCCache_ocs cache;
+  std::vector<std::unique_ptr<MPCCache_ocs>> m_ocs_caches;
   // MPC inputs
   SystemObservation currentObservation_;
   std::mutex observationMutex_;
   // store latest cmd_vel as a 4-element vector used by caching/feature vector
   vector_t cmdVel = vector_t::Zero(4);
 
-  // void cmdVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
-  //     std::lock_guard<std::mutex> lock(observationMutex_);
-  //     cmdVel[0] = msg->linear.x;
-  //     cmdVel[1] = msg->linear.y;
-  //     cmdVel[2] = msg->linear.z;
-  //     cmdVel[3] = msg->angular.z;
-
-  //   }
+  void cmdVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
+      std::lock_guard<std::mutex> lock(observationMutex_);
+      cmdVel[0] = msg->linear.x;
+      cmdVel[1] = msg->linear.y;
+      cmdVel[2] = msg->linear.z;
+      cmdVel[3] = msg->angular.z;
+    }
 };
 
 }  // namespace ocs2
