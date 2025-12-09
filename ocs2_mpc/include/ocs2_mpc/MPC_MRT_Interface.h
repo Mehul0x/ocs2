@@ -156,8 +156,7 @@ class MPC_MRT_Interface final : public MRT_BASE {
   vector_t cmdVel = vector_t::Zero(4);
 
   ControllerBase* controllerPtr_;
-  PerformanceIndex cacheperformanceIndeces;
-  bool flag=true;
+
 
   void cmdVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
       std::lock_guard<std::mutex> lock(observationMutex_);

@@ -125,7 +125,9 @@ void MPC_MRT_Interface::advanceMpc() {
     PrimalSolutionptr.controllerPtr_=std::unique_ptr<ocs2::ControllerBase>(controllerPtr_->clone());
   else
     std::cerr << "null pointer found, get good at exception handling" << "\n";
+
   auto& PerformanceIndexptr = solptr->ptr.performanceIndices;
+
   auto& CommandDataptr = solptr->ptr.command;
   this->moveToBuffer(std::move(std::make_unique<ocs2::CommandData>(CommandDataptr)),
                      std::move(std::make_unique<ocs2::PrimalSolution>(PrimalSolutionptr)),
@@ -187,19 +189,7 @@ void MPC_MRT_Interface::copyToCache(MPCCache_ocs& cache, const SystemObservation
   auto performanceIndicesPtr = std::make_unique<PerformanceIndex>();
   *performanceIndicesPtr = mpc_.getSolverPtr()->getPerformanceIndeces();
 
-  //ask nimesh if this is a good implementation
   controllerPtr_ = (primalSolutionPtr->controllerPtr_)->clone();
-
-  // if(flag){
-  //     cacheperformanceIndeces = *performanceIndicesPtr;
-  //   flag=false;
-  // }
-  // std::cerr << controllerPtr_ << "\n";
-  // std::cerr << "the controller type is "<< static_cast<int>(primalSolutionPtr->controllerPtr_->getType()) <<"\n";
-  // //copy the data to cache
-  // auto copiedPrimalSolution = std::make_unique<PrimalSolution>(*primalSolutionPtr);
-  // auto copiedPerformanceIndex = std::make_unique<PerformanceIndex>(*performanceIndicesPtr);
-  // auto copiedCommandData = std::make_unique<CommandData>(*commandPtr);
 
   MPCCacheEntry_ocs Entry;
   Entry.feat=feat;
@@ -236,8 +226,6 @@ void MPC_MRT_Interface::copyToBuffer(const SystemObservation& mpcInitObservation
   auto performanceIndicesPtr = std::make_unique<PerformanceIndex>();
   *performanceIndicesPtr = mpc_.getSolverPtr()->getPerformanceIndeces();
 
-  // std::cerr << "the controller type is "<< static_cast<int>(primalSolutionPtr->controllerPtr_->getType()) <<"\n";
-  // std::cerr << "time array: " << primalSolutionPtr->controllerPtr_->timeStamp_ << "\n" ;
   this->moveToBuffer(std::move(commandPtr), std::move(primalSolutionPtr), std::move(performanceIndicesPtr));
 }
 
