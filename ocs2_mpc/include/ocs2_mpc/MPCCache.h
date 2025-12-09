@@ -10,14 +10,9 @@
 #include "ocs2_mpc/MRT_BASE.h"
 
 struct MPCSolutionPointers {
-    std::unique_ptr<ocs2::PrimalSolution> primalSolutionPtr;
-    std::unique_ptr<ocs2::CommandData> commandPtr;
-    std::unique_ptr<ocs2::PerformanceIndex> performanceIndicesPtr;
-
-    // This is a convenient helper to check if the result is valid.
-    explicit operator bool() const {
-        return primalSolutionPtr != nullptr;
-    }
+    ocs2::PrimalSolution primalSolution;
+    ocs2::CommandData command;
+    ocs2::PerformanceIndex performanceIndices;
 };
 
 /**

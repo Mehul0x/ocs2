@@ -44,12 +44,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ocs2_core/model_data/Multiplier.h>
 #include "ocs2_mpc/MPC_BASE.h"
 #include "ocs2_mpc/MRT_BASE.h"
-
+#include <ocs2_oc/oc_data/PerformanceIndex.h>
 #include <ros/subscriber.h>
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 
-#define USE_CACHING
+// #define USE_CACHING
 
 namespace ocs2 {
 
@@ -154,6 +154,10 @@ class MPC_MRT_Interface final : public MRT_BASE {
   std::mutex observationMutex_;
   // store latest cmd_vel as a 4-element vector used by caching/feature vector
   vector_t cmdVel = vector_t::Zero(4);
+
+  ControllerBase* controllerPtr_;
+  PerformanceIndex cacheperformanceIndeces;
+  bool flag=true;
 
   void cmdVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
       std::lock_guard<std::mutex> lock(observationMutex_);

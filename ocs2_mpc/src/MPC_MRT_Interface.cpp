@@ -98,8 +98,8 @@ void MPC_MRT_Interface::advanceMpc() {
     std::lock_guard<std::mutex> lock(observationMutex_);  
     currentObservation = currentObservation_;
   }
-
-  #ifdef USE_CACHING 
+#define USE_CACHING
+#ifdef USE_CACHING 
   {
   vector_t feat(12 +4);
   feat << currentObservation.state.head(12), cmdVel;
@@ -120,21 +120,22 @@ void MPC_MRT_Interface::advanceMpc() {
     copyToCache(cache, currentObservation, feat, key); 
   }
   else{
-  
-  // std::cerr<<"in the else" << std::endl ;
-  auto copiedPrimalSolution = std::make_unique<PrimalSolution>(*(solptr->ptr.primalSolutionPtr)); //need to deference before turning into a ptr again
-
-  auto copiedPerformanceIndex = std::make_unique<PerformanceIndex>(*(solptr->ptr.performanceIndicesPtr));
-
-  auto copiedCommandData = std::make_unique<CommandData>(*(solptr->ptr.commandPtr));
-
-
-  this->moveToBuffer(std::move(copiedCommandData), std::move(copiedPrimalSolution), std::move(copiedPerformanceIndex));
+  auto& PrimalSolutionptr = solptr->ptr.primalSolution;
+  if(controllerPtr_!=nullptr)
+    PrimalSolutionptr.controllerPtr_=std::unique_ptr<ocs2::ControllerBase>(controllerPtr_->clone());
+  else
+    std::cerr << "null pointer found, get good at exception handling" << "\n";
+  auto& PerformanceIndexptr = solptr->ptr.performanceIndices;
+  auto& CommandDataptr = solptr->ptr.command;
+  this->moveToBuffer(std::move(std::make_unique<ocs2::CommandData>(CommandDataptr)),
+                     std::move(std::make_unique<ocs2::PrimalSolution>(PrimalSolutionptr)),
+                      std::move(std::make_unique<ocs2::PerformanceIndex>(PerformanceIndexptr)));
 
   }
-} 
+  } 
   #endif
-  #ifndef USE_CACHING 
+
+#ifndef USE_CACHING 
   {
 
   bool controllerIsUpdated = mpc_.run(currentObservation.time, currentObservation.state);
@@ -186,16 +187,33 @@ void MPC_MRT_Interface::copyToCache(MPCCache_ocs& cache, const SystemObservation
   auto performanceIndicesPtr = std::make_unique<PerformanceIndex>();
   *performanceIndicesPtr = mpc_.getSolverPtr()->getPerformanceIndeces();
 
-  //copy the data to cache
-  auto copiedPrimalSolution = std::make_unique<PrimalSolution>(*primalSolutionPtr);
-  auto copiedPerformanceIndex = std::make_unique<PerformanceIndex>(*performanceIndicesPtr);
-  auto copiedCommandData = std::make_unique<CommandData>(*commandPtr);
+  //ask nimesh if this is a good implementation
+  controllerPtr_ = (primalSolutionPtr->controllerPtr_)->clone();
+
+  // if(flag){
+  //     cacheperformanceIndeces = *performanceIndicesPtr;
+  //   flag=false;
+  // }
+  // std::cerr << controllerPtr_ << "\n";
+  // std::cerr << "the controller type is "<< static_cast<int>(primalSolutionPtr->controllerPtr_->getType()) <<"\n";
+  // //copy the data to cache
+  // auto copiedPrimalSolution = std::make_unique<PrimalSolution>(*primalSolutionPtr);
+  // auto copiedPerformanceIndex = std::make_unique<PerformanceIndex>(*performanceIndicesPtr);
+  // auto copiedCommandData = std::make_unique<CommandData>(*commandPtr);
 
   MPCCacheEntry_ocs Entry;
   Entry.feat=feat;
-  Entry.ptr.commandPtr=std::move(copiedCommandData);
-  Entry.ptr.primalSolutionPtr=std::move(copiedPrimalSolution);
-  Entry.ptr.performanceIndicesPtr=std::move(copiedPerformanceIndex);
+
+  //commanddata
+  Entry.ptr.command.mpcInitObservation_=commandPtr->mpcInitObservation_;
+  Entry.ptr.command.mpcTargetTrajectories_=commandPtr->mpcTargetTrajectories_;
+
+  //PrimalSolution
+  Entry.ptr.primalSolution = *primalSolutionPtr;
+
+  //Performance index, maybe can remove them?
+  Entry.ptr.performanceIndices=*performanceIndicesPtr;
+
 
   cache.insert(key, Entry);
   this->moveToBuffer(std::move(commandPtr), std::move(primalSolutionPtr), std::move(performanceIndicesPtr));
@@ -218,6 +236,8 @@ void MPC_MRT_Interface::copyToBuffer(const SystemObservation& mpcInitObservation
   auto performanceIndicesPtr = std::make_unique<PerformanceIndex>();
   *performanceIndicesPtr = mpc_.getSolverPtr()->getPerformanceIndeces();
 
+  // std::cerr << "the controller type is "<< static_cast<int>(primalSolutionPtr->controllerPtr_->getType()) <<"\n";
+  // std::cerr << "time array: " << primalSolutionPtr->controllerPtr_->timeStamp_ << "\n" ;
   this->moveToBuffer(std::move(commandPtr), std::move(primalSolutionPtr), std::move(performanceIndicesPtr));
 }
 
