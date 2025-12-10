@@ -37,7 +37,7 @@ namespace ocs2 {
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
-MPC_MRT_Interface::MPC_MRT_Interface(MPC_BASE& mpc, ::ros::NodeHandle nodeHandle) : mpc_(mpc) {
+MPC_MRT_Interface::MPC_MRT_Interface(MPC_BASE& mpc, ::ros::NodeHandle nodeHandle) : mpc_(mpc), cacheFilePath_("/home/aero/legged_control/src/mpc_cache.cache") {
   mpcTimer_.reset();
 
   // // subscribe with member callback
@@ -51,6 +51,11 @@ MPC_MRT_Interface::MPC_MRT_Interface(MPC_BASE& mpc, ::ros::NodeHandle nodeHandle
     cache = std::make_unique<MPCCache_ocs>(cache_size, 0.5);
     i++;
   }
+
+    // Load pre-existing cache from file if it exists
+  loadCacheFromFile();
+
+  
   cmdVelSub_ = nodeHandle.subscribe ("/cmd_vel", 1, &MPC_MRT_Interface::cmdVelCallback, this);
 
 }
@@ -99,10 +104,11 @@ void MPC_MRT_Interface::advanceMpc() {
     currentObservation = currentObservation_;
   }
 #define USE_CACHING
+
 #ifdef USE_CACHING 
   {
   vector_t feat(12 +4);
-  feat << currentObservation.state.head(12), cmdVel;
+  feat << currentObservation.state.segment(3, 9), cmdVel;
   
   auto &cache = *m_ocs_caches[currentObservation.mode];
   auto key = cache.quantizeKey(feat);
@@ -112,7 +118,9 @@ void MPC_MRT_Interface::advanceMpc() {
   else delta=0.1;
 
   auto solptr=cache.queryNearest(key, feat, delta);
+
   if ( solptr== nullptr){
+    // std::cerr<<"Actual Computation: " << ++actualcomputation << "\n";
     bool controllerIsUpdated = mpc_.run(currentObservation.time, currentObservation.state);
     if (!controllerIsUpdated) {
       return;
@@ -120,18 +128,19 @@ void MPC_MRT_Interface::advanceMpc() {
     copyToCache(cache, currentObservation, feat, key); 
   }
   else{
-  auto& PrimalSolutionptr = solptr->ptr.primalSolution;
-  if(controllerPtr_!=nullptr)
-    PrimalSolutionptr.controllerPtr_=std::unique_ptr<ocs2::ControllerBase>(controllerPtr_->clone());
-  else
-    std::cerr << "null pointer found, get good at exception handling" << "\n";
+    // std::cerr << "Cache hit" << ++cachehit << "\n";
+    auto& PrimalSolutionptr = solptr->ptr.primalSolution;
+    if(controllerPtr_!=nullptr)
+      PrimalSolutionptr.controllerPtr_=std::unique_ptr<ocs2::ControllerBase>(controllerPtr_->clone());
+    else
+      std::cerr << "null pointer found, get good at exception handling" << "\n";
 
-  auto& PerformanceIndexptr = solptr->ptr.performanceIndices;
+    auto& PerformanceIndexptr = solptr->ptr.performanceIndices;
 
-  auto& CommandDataptr = solptr->ptr.command;
-  this->moveToBuffer(std::move(std::make_unique<ocs2::CommandData>(CommandDataptr)),
-                     std::move(std::make_unique<ocs2::PrimalSolution>(PrimalSolutionptr)),
-                      std::move(std::make_unique<ocs2::PerformanceIndex>(PerformanceIndexptr)));
+    auto& CommandDataptr = solptr->ptr.command;
+    this->moveToBuffer(std::move(std::make_unique<ocs2::CommandData>(CommandDataptr)),
+                      std::move(std::make_unique<ocs2::PrimalSolution>(PrimalSolutionptr)),
+                        std::move(std::make_unique<ocs2::PerformanceIndex>(PerformanceIndexptr)));
 
   }
   } 
@@ -261,6 +270,46 @@ vector_t MPC_MRT_Interface::getStateInputEqualityConstraintLagrangian(scalar_t t
 /******************************************************************************************************/
 MultiplierCollection MPC_MRT_Interface::getIntermediateDualSolution(scalar_t time) const {
   return mpc_.getSolverPtr()->getIntermediateDualSolution(time);
+}
+
+/******************************************************************************************************/
+/******************************************************************************************************/
+/******************************************************************************************************/
+MPC_MRT_Interface::~MPC_MRT_Interface() {
+  // Save cache to file on destruction
+  saveCacheToFile();
+}
+
+/******************************************************************************************************/
+/******************************************************************************************************/
+/******************************************************************************************************/
+void MPC_MRT_Interface::setCacheFilePath(const std::string& cacheFilePath) {
+  cacheFilePath_ = cacheFilePath;
+}
+
+/******************************************************************************************************/
+/******************************************************************************************************/
+/******************************************************************************************************/
+void MPC_MRT_Interface::saveCacheToFile() {
+  if (save_caches(m_ocs_caches, cacheFilePath_)) {
+    if (mpc_.settings().debugPrint_) {
+      std::cout << "[MPC_MRT_Interface] Cache saved to: " << cacheFilePath_ << std::endl;
+    }
+  } else {
+    std::cerr << "[MPC_MRT_Interface] Warning: Failed to save cache to: " << cacheFilePath_ << std::endl;
+  }
+}
+
+/******************************************************************************************************/
+/******************************************************************************************************/
+/******************************************************************************************************/
+void MPC_MRT_Interface::loadCacheFromFile() {
+  if (load_caches(m_ocs_caches, cacheFilePath_)) {
+      std::cout << "[MPC_MRT_Interface] Cache loaded from: " << cacheFilePath_ << std::endl;
+  } else {
+      std::cout << "[MPC_MRT_Interface] Cache file not found or unreadable: " << cacheFilePath_ 
+                << " (will create new cache)" << std::endl;
+  }
 }
 
 /******************************************************************************************************/

@@ -62,10 +62,30 @@ class MPC_MRT_Interface final : public MRT_BASE {
   /**
    * Constructor
    * @param [in] mpc: The underlying MPC class to be used.
+   * @param [in] nodeHandle: ROS node handle
    */
   explicit MPC_MRT_Interface(MPC_BASE& mpc, ::ros::NodeHandle nodeHandle);
 
-  ~MPC_MRT_Interface() override = default;
+  /**
+   * Destructor. Saves cache to file on destruction.
+   */
+  ~MPC_MRT_Interface() override;
+
+  /**
+   * Set the file path for cache persistence.
+   * @param [in] cacheFilePath: Path to the cache file (default: "./mpc_cache.bin")
+   */
+  void setCacheFilePath(const std::string& cacheFilePath);
+
+  /**
+   * Explicitly save the current cache to file.
+   */
+  void saveCacheToFile();
+
+  /**
+   * Explicitly load cache from file.
+   */
+  void loadCacheFromFile();
 
   void resetMpcNode(const TargetTrajectories& initTargetTrajectories) override;
 
@@ -149,6 +169,7 @@ class MPC_MRT_Interface final : public MRT_BASE {
   benchmark::RepeatedTimer mpcTimer_;
 
   std::vector<std::unique_ptr<MPCCache_ocs>> m_ocs_caches;
+  std::string cacheFilePath_;  // Path to cache file for persistence
   // MPC inputs
   SystemObservation currentObservation_;
   std::mutex observationMutex_;
@@ -157,7 +178,8 @@ class MPC_MRT_Interface final : public MRT_BASE {
 
   ControllerBase* controllerPtr_;
 
-
+  int cachehit =0;
+  int actualcomputation=0;
   void cmdVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
       std::lock_guard<std::mutex> lock(observationMutex_);
       cmdVel[0] = msg->linear.x;
