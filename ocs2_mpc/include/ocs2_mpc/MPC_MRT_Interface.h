@@ -178,8 +178,9 @@ class MPC_MRT_Interface final : public MRT_BASE {
 
   ControllerBase* controllerPtr_;
 
-  int cachehit =0;
-  int actualcomputation=0;
+  double cachehit =0;
+  double actualcomputation=0;
+  double hitrate;
   void cmdVelCallback(const geometry_msgs::Twist::ConstPtr& msg) {
       std::lock_guard<std::mutex> lock(observationMutex_);
       cmdVel[0] = msg->linear.x;

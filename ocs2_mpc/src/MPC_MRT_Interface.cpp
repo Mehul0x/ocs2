@@ -107,8 +107,8 @@ void MPC_MRT_Interface::advanceMpc() {
 
 #ifdef USE_CACHING 
   {
-  vector_t feat(12 +4);
-  feat << currentObservation.state.segment(3, 9), cmdVel;
+  vector_t feat(6 +4);
+  feat << currentObservation.state.segment(6, 6), cmdVel; //are roll pitch yaw in global frame or robot frame?
   
   auto &cache = *m_ocs_caches[currentObservation.mode];
   auto key = cache.quantizeKey(feat);
@@ -120,6 +120,7 @@ void MPC_MRT_Interface::advanceMpc() {
   auto solptr=cache.queryNearest(key, feat, delta);
 
   if ( solptr== nullptr){
+    actualcomputation+=1;
     // std::cerr<<"Actual Computation: " << ++actualcomputation << "\n";
     bool controllerIsUpdated = mpc_.run(currentObservation.time, currentObservation.state);
     if (!controllerIsUpdated) {
@@ -129,6 +130,7 @@ void MPC_MRT_Interface::advanceMpc() {
   }
   else{
     // std::cerr << "Cache hit" << ++cachehit << "\n";
+    cachehit+=1;
     auto& PrimalSolutionptr = solptr->ptr.primalSolution;
     if(controllerPtr_!=nullptr)
       PrimalSolutionptr.controllerPtr_=std::unique_ptr<ocs2::ControllerBase>(controllerPtr_->clone());
@@ -143,6 +145,8 @@ void MPC_MRT_Interface::advanceMpc() {
                         std::move(std::make_unique<ocs2::PerformanceIndex>(PerformanceIndexptr)));
 
   }
+  hitrate= cachehit/(cachehit+actualcomputation);
+  std::cout << "cache hit rate " << hitrate << " \n";
   } 
   #endif
 
