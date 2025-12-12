@@ -45,10 +45,10 @@ MPC_MRT_Interface::MPC_MRT_Interface(MPC_BASE& mpc, ::ros::NodeHandle nodeHandle
 
   int i=0;
   for(auto& cache: m_ocs_caches){
-    int cache_size = 64;
-    if(i==6 || i==9)
-      cache_size=512;
-    cache = std::make_unique<MPCCache_ocs>(cache_size, 0.5);
+    double delta = 0.1;
+    if(i==0 || i==15)
+      delta=0.0001;
+    cache = std::make_unique<LSH>(delta, 10,5,35);
     i++;
   }
 
@@ -111,26 +111,21 @@ void MPC_MRT_Interface::advanceMpc() {
   feat << currentObservation.state.segment(6, 6), cmdVel; //are roll pitch yaw in global frame or robot frame?
   
   auto &cache = *m_ocs_caches[currentObservation.mode];
-  auto key = cache.quantizeKey(feat);
 
-  double delta;
-  if(currentObservation.mode==0 || currentObservation.mode==15) delta = 0.0001;
-  else delta=0.1;
-
-  auto solptr=cache.queryNearest(key, feat, delta);
+  auto solptr=cache.queryNearest(feat);
 
   if ( solptr== nullptr){
-    actualcomputation+=1;
+    // actualcomputation+=1;
     // std::cerr<<"Actual Computation: " << ++actualcomputation << "\n";
     bool controllerIsUpdated = mpc_.run(currentObservation.time, currentObservation.state);
     if (!controllerIsUpdated) {
       return;
     }
-    copyToCache(cache, currentObservation, feat, key); 
+    copyToCache(cache, currentObservation, feat); 
   }
   else{
     // std::cerr << "Cache hit" << ++cachehit << "\n";
-    cachehit+=1;
+    // cachehit+=1;
     auto& PrimalSolutionptr = solptr->ptr.primalSolution;
     if(controllerPtr_!=nullptr)
       PrimalSolutionptr.controllerPtr_=std::unique_ptr<ocs2::ControllerBase>(controllerPtr_->clone());
@@ -145,8 +140,8 @@ void MPC_MRT_Interface::advanceMpc() {
                         std::move(std::make_unique<ocs2::PerformanceIndex>(PerformanceIndexptr)));
 
   }
-  hitrate= cachehit/(cachehit+actualcomputation);
-  std::cout << "cache hit rate " << hitrate << " \n";
+  // hitrate= cachehit/(cachehit+actualcomputation);
+  // std::cout << "cache hit rate " << hitrate << " \n";
   } 
   #endif
 
@@ -185,7 +180,7 @@ void MPC_MRT_Interface::advanceMpc() {
 /******************************************************************************************************/
 /******************************************************************************************************/
 /******************************************************************************************************/
-void MPC_MRT_Interface::copyToCache(MPCCache_ocs& cache, const SystemObservation& mpcInitObservation, vector_t feat, std::string& key) {
+void MPC_MRT_Interface::copyToCache(LSH& cache, const SystemObservation& mpcInitObservation, vector_t& feat) {
   // policy
   auto primalSolutionPtr = std::make_unique<PrimalSolution>();
   const scalar_t startTime = mpcInitObservation.time;
@@ -204,7 +199,7 @@ void MPC_MRT_Interface::copyToCache(MPCCache_ocs& cache, const SystemObservation
 
   controllerPtr_ = (primalSolutionPtr->controllerPtr_)->clone();
 
-  MPCCacheEntry_ocs Entry;
+  MPCLSHEntry Entry;
   Entry.feat=feat;
 
   //commanddata
@@ -218,7 +213,7 @@ void MPC_MRT_Interface::copyToCache(MPCCache_ocs& cache, const SystemObservation
   Entry.ptr.performanceIndices=*performanceIndicesPtr;
 
 
-  cache.insert(key, Entry);
+  cache.insert(feat, Entry);
   this->moveToBuffer(std::move(commandPtr), std::move(primalSolutionPtr), std::move(performanceIndicesPtr));
 }
 

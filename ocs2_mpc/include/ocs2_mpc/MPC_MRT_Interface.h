@@ -38,8 +38,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <thread>
 #include <vector> 
 #include <limits>
-#include "ocs2_mpc/MPCCache.h"
-
+// #include "ocs2_mpc/MPCCache.h"
+#include "ocs2_mpc/MPC_LSH.h"
 #include <ocs2_core/misc/Benchmark.h>
 #include <ocs2_core/model_data/Multiplier.h>
 #include "ocs2_mpc/MPC_BASE.h"
@@ -160,7 +160,7 @@ class MPC_MRT_Interface final : public MRT_BASE {
    *
    * @param [in] mpcInitObservation: The observation used to run the MPC.
    */
-  void copyToCache(MPCCache_ocs& cache, const SystemObservation& mpcInitObservation, vector_t feat, std::string& key);
+  void copyToCache(LSH& cache, const SystemObservation& mpcInitObservation, vector_t& feat);
 
   
   ::ros::Subscriber cmdVelSub_;
@@ -168,7 +168,7 @@ class MPC_MRT_Interface final : public MRT_BASE {
   MPC_BASE& mpc_;
   benchmark::RepeatedTimer mpcTimer_;
 
-  std::vector<std::unique_ptr<MPCCache_ocs>> m_ocs_caches;
+  std::vector<std::unique_ptr<LSH>> m_ocs_caches;
   std::string cacheFilePath_;  // Path to cache file for persistence
   // MPC inputs
   SystemObservation currentObservation_;
